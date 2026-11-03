@@ -50,9 +50,10 @@
 4. Đổi sang nhân vật ngố: mắt lồi, chân mì sợi, tay khều khào.
 5. Thêm chơi online 5 người, đưa lên GitHub Pages.
 6. Sửa lỗi điện thoại bị phóng to không bấm được nút; thêm nút + / − để thu phóng bản đồ.
+7. Thêm chat chữ: Enter (hoặc T) hoặc nút ✉️ để mở ô chat, tối đa 80 ký tự. Tin nhắn hiện thành bong bóng trên đầu và trong bảng tin (màu xanh). Online gửi qua presence (5 tin gần nhất). Chơi với máy thì đồng nghiệp gần đó đôi khi trả lời.
 
 ## Việc có thể làm tiếp
 - Thêm máy chủ TURN để mạng nào cũng kết nối được.
 - Nhân vật quay đủ 4 hướng, thêm nhân vật mới (máy photocopy, cốc cà phê, cây nước...).
-- Chat chữ giữa người chơi; chế độ đóng vai Sếp cho người thật.
+- Chế độ đóng vai Sếp cho người thật.
 - Bảng xếp hạng lưu qua nhiều ván.

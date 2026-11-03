@@ -92,6 +92,10 @@ input[type=text]{font:inherit;font-size:16px;padding:10px 12px;border:2px solid 
 .btn:disabled{opacity:.45;cursor:default;box-shadow:none}
 .netline{font-size:13px;margin:8px 0 0;color:var(--ink);font-weight:600}
 .netline .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2E9E44;margin-right:6px}
+.chatbox{position:absolute;left:50%;top:104px;transform:translateX(-50%);z-index:8;display:flex;gap:6px;width:min(420px,calc(100% - 100px))}
+.chatbox input{flex:1;font:16px var(--body);padding:8px 10px;border:2px solid var(--ink);border-radius:6px;background:#fff;color:var(--ink);min-width:0}
+.chatbox button{font:700 14px var(--body);padding:0 12px;border:2px solid var(--ink);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+.feed div.chat{background:rgba(47,111,222,.9)}
 .online-tag{position:absolute;left:50%;top:70px;transform:translateX(-50%);font-size:12px;z-index:5;pointer-events:none;background:#1E1B18;color:#FFF8E7;padding:3px 10px;border-radius:12px}
 </style>
 
@@ -107,7 +111,8 @@ input[type=text]{font:inherit;font-size:16px;padding:10px 12px;border:2px solid 
   <div class="banner" id="banner" hidden></div>
   <div class="feed" id="feed"></div>
   <div class="online-tag" id="otag" hidden></div>
-  <div class="zoombar" id="zoombar" hidden><button id="zin" aria-label="Phóng to">+</button><button id="zout" aria-label="Thu nhỏ">−</button></div>
+  <div class="zoombar" id="zoombar" hidden><button id="zin" aria-label="Phóng to">+</button><button id="zout" aria-label="Thu nhỏ">−</button><button id="chatBtn" aria-label="Chat" title="Chat (Enter)" style="font-size:16px">✉️</button></div>
+  <form class="chatbox" id="chatbox" hidden autocomplete="off"><input type="text" id="chatIn" maxlength="80" placeholder="Nhập tin nhắn, Enter để gửi" aria-label="Tin nhắn"><button type="submit">Gửi</button></form>
   <div class="card target" id="tgt" hidden></div>
   <div class="talk" id="talk" hidden></div>
   <div class="actions" id="acts" hidden></div>
@@ -124,7 +129,7 @@ input[type=text]{font:inherit;font-size:16px;padding:10px 12px;border:2px solid 
         <button class="btn alt" id="go">Chơi với máy</button>
       </div>
       <p class="netline" id="netline">Đang kết nối phòng chơi online...</p>
-      <p class="hint">Máy tính: WASD hoặc mũi tên để đi, phím 1–7 để hành động. Điện thoại: kéo ngón tay ở nửa trái màn hình để đi. Đứng gần ai đó mới nói chuyện được. Đứng gần tủ, thùng carton thì bấm 🫣 để trốn. Khi có sự kiện "Sếp đi tìm người", trốn kỹ vào!</p>
+      <p class="hint">Máy tính: WASD hoặc mũi tên để đi, phím 1–7 để hành động, Enter để chat (điện thoại: nút ✉️). Điện thoại: kéo ngón tay ở nửa trái màn hình để đi. Đứng gần ai đó mới nói chuyện được. Đứng gần tủ, thùng carton thì bấm 🫣 để trốn. Khi có sự kiện "Sếp đi tìm người", trốn kỹ vào!</p>
     </div>
   </div>
   <div class="screen" id="end" hidden><div class="panel" id="endPanel"></div></div>
@@ -290,7 +295,7 @@ const bannerEl=document.getElementById("banner");let bannerT=0;
 function banner(t,s){bannerEl.innerHTML=t+(s?`<small>${s}</small>`:"");bannerEl.hidden=false;bannerT=3.5}
 const nm=e=>`<b>${e.name}</b>`;
 // ---------- Online (room capability) ----------
-let ROOM=null;const NET={on:false,host:false,hostPeer:null,myPeer:null,out:[],seq:0,seen:{},sayI:0,bossSayI:0,lastPub:0,hostLeft:null,evN:0,ghosts:new Map()};
+let ROOM=null;const NET={on:false,host:false,hostPeer:null,myPeer:null,out:[],seq:0,seen:{},sayI:0,bossSayI:0,lastPub:0,hostLeft:null,evN:0,ghosts:new Map(),chat:[],chatI:0,chatSeen:{}};
 function sendFx(e,o){if(!NET.on||!e.peer)return;NET.out.push({i:++NET.seq,to:e.peer,...o});if(NET.out.length>14)NET.out.shift()}
 function stunE(t,v){if(t.remote)sendFx(t,{k:"stun",v});else if(!t.boss)t.stunT=v}
 function slowE(t,v){if(t.remote)sendFx(t,{k:"slow",v});else if(!t.boss)t.slowT=v}
@@ -479,7 +484,7 @@ function seek(e,g,dt){if(!g)return step(e,0,0,dt);const dx=g.x-e.x,dy=g.y-e.y;co
 
 // ---------- Input ----------
 const keys={};let joy={x:0,y:0,active:false};
-addEventListener("keydown",ev=>{if(!S||S.over)return;keys[ev.key.toLowerCase()]=true;const n=parseInt(ev.key);if(!talkEl.hidden){const bs=talkEl.querySelectorAll(".opt");if(n>=1&&n<=bs.length){chooseTalk(bs[n-1].dataset.k,bs[n-1].dataset.l)}if(ev.key==="Escape")closeTalk();return}if(n>=1&&n<=7){doAct(me,ACTS[n-1].id)}if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(ev.key.toLowerCase()))ev.preventDefault()});
+addEventListener("keydown",ev=>{if(!S||S.over)return;if(ev.target&&ev.target.id==="chatIn"){if(ev.key==="Escape"){ev.preventDefault();closeChat()}return}if(ev.key==="Enter"||ev.key==="t"||ev.key==="T"){if(talkEl.hidden){ev.preventDefault();openChat();return}}keys[ev.key.toLowerCase()]=true;const n=parseInt(ev.key);if(!talkEl.hidden){const bs=talkEl.querySelectorAll(".opt");if(n>=1&&n<=bs.length){chooseTalk(bs[n-1].dataset.k,bs[n-1].dataset.l)}if(ev.key==="Escape")closeTalk();return}if(n>=1&&n<=7){doAct(me,ACTS[n-1].id)}if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(ev.key.toLowerCase()))ev.preventDefault()});
 addEventListener("keyup",ev=>{keys[ev.key.toLowerCase()]=false});
 const joyEl=document.getElementById("joy");let knob=null,joyId=null,joyO=null;
 joyEl.addEventListener("pointerdown",ev=>{joyId=ev.pointerId;joyO={x:ev.clientX,y:ev.clientY};joyEl.setPointerCapture(ev.pointerId);knob=document.createElement("div");knob.className="knob";knob.innerHTML="<i></i>";knob.style.left=ev.clientX+"px";knob.style.top=ev.clientY+"px";document.getElementById("app").appendChild(knob);joy.active=true});
@@ -655,6 +660,7 @@ function netTick(dt){
   if(Array.isArray(pr.st)){g.st.kpi=pr.st[0];g.st.uytin=pr.st[1];g.st.tc=pr.st[2];g.st.stress=pr.st[3]}
   if(Array.isArray(pr.c)){g.count.tasks=pr.c[0];g.count.trash=pr.c[1];g.count.punch=pr.c[2];g.count.boss=pr.c[3];g.count.suck=pr.c[4]}
   const hi=Number.isInteger(pr.h)?pr.h:-1;if(hi>=0&&HIDES[hi]){if(g.hidden!==HIDES[hi]){if(g.hidden)g.hidden.by=null;g.hidden=HIDES[hi];HIDES[hi].by=g}}else if(g.hidden){g.hidden.by=null;g.hidden=null}
+  if(Array.isArray(pr.ch)){const lc=NET.chatSeen[p.peer];let mx=lc==null?-1:lc;for(const c of pr.ch){if(!c||typeof c.i!=="number")continue;if(lc!=null&&c.i>lc)showChat(g,c.t);mx=Math.max(mx,c.i)}NET.chatSeen[p.peer]=mx}
   if(pr.b&&pr.b.i!==g._bi){g._bi=pr.b.i;if(pr.b.t)g.bubble={t:String(pr.b.t).slice(0,90),until:S.time+2}}
   // effects addressed to me
   if(Array.isArray(pr.fx)){const last=NET.seen[p.peer]||0;let mx=last;for(const f of pr.fx){if(!f||f.i<=last)continue;mx=Math.max(mx,f.i);if(f.to!==NET.myPeer)continue;applyFx(f,g)}NET.seen[p.peer]=mx}
@@ -669,7 +675,7 @@ function netTick(dt){
  // publish my state ~15/s
  if(S.time-NET.lastPub>.066){NET.lastPub=S.time;const pr={on:1,n:me.name,k:me.role.k,x:Math.round(me.x),y:Math.round(me.y),f:me.face,w:me.walk>0?1:0,s:me.stunT>0?1:0,h:me.hidden?HIDES.indexOf(me.hidden):-1,
    st:[Math.round(me.st.kpi),Math.round(me.st.uytin),Math.round(me.st.tc),Math.round(me.st.stress)],c:[me.count.tasks,me.count.trash,me.count.punch,me.count.boss,me.count.suck],
-   b:me.bubble&&me.bubble.until>S.time?{i:NET.sayI,t:me.bubble.t}:null,fx:NET.out};
+   b:me.bubble&&me.bubble.until>S.time?{i:NET.sayI,t:me.bubble.t}:null,fx:NET.out,ch:NET.chat};
   if(NET.host){const B=S.boss;pr.boss={x:Math.round(B.x),y:Math.round(B.y),f:B.face,w:B.walk>0?1:0,hp:B.hp,dn:B.downT>0?1:0,b:B.bubble&&B.bubble.until>S.time?{i:NET.bossSayI,t:B.bubble.t}:null};pr.left=Math.round(timeLeft());pr.ev=S.ev?{n:S.evN,id:S.ev.id,left:Math.max(0,Math.round(S.ev.end-S.time))}:null}
   else{pr.boss=null;pr.left=null;pr.ev=null}
   ROOM.presence(pr).catch(()=>{})}
@@ -685,8 +691,22 @@ function applyFx(f,from){
   if(B.hp<=0){B.downT=20;B.hp=0;banner("SẾP ĐÃ BỊ HẠ!","Sếp đi \"khám sức khỏe\" 20 giây");[...B.hitters].forEach(o=>chg(o,"kpi",15));B.hitters=new Set()}}
  if(f.m)feed(String(f.m).slice(0,120).replace(/</g,"&lt;"));
 }
+// ---------- Text chat ----------
+const chatBox=document.getElementById("chatbox"),chatIn=document.getElementById("chatIn");
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function openChat(){if(!S||S.over)return;for(const k in keys)keys[k]=false;chatBox.hidden=false;chatIn.value="";chatIn.focus()}
+function closeChat(){chatBox.hidden=true;chatIn.blur()}
+function showChat(e,t){t=String(t||"").slice(0,80).trim();if(!t)return;e.bubble={t,until:S.time+3.5};const d=document.createElement("div");d.className="chat";d.innerHTML=`<b>${esc(e.name)}:</b> ${esc(t)}`;feedEl.appendChild(d);while(feedEl.children.length>6)feedEl.removeChild(feedEl.firstChild)}
+const BOT_REPLY=["Ừ đúng rồi!","Ai hỏi đâu 😒","Haha","Thật á?","Đang bận, nói sau","Sếp đang nhìn kìa!","Chuẩn luôn","Ok bạn ơi"];
+function sendChat(){const t=chatIn.value.replace(/\s+/g," ").trim().slice(0,80);closeChat();if(!t||!S||S.over)return;
+ showChat(me,t);
+ if(NET.on){NET.chat.push({i:++NET.chatI,t});if(NET.chat.length>5)NET.chat.shift()}
+ else{const b=nearest(me,200,o=>o.isBot&&!o.boss);if(b&&Math.random()<.7)setTimeout(()=>{if(S&&!S.over)showChat(b,pick(BOT_REPLY))},700+Math.random()*900)}}
+chatBox.addEventListener("submit",ev=>{ev.preventDefault();sendChat()});
+chatIn.addEventListener("blur",()=>{setTimeout(()=>{if(document.activeElement!==chatIn&&!chatIn.value)chatBox.hidden=true},150)});
+document.getElementById("chatBtn").addEventListener("click",()=>{chatBox.hidden?openChat():closeChat()});
 function score(e){return Math.round(e.st.kpi*1+e.st.uytin*.8+e.st.tc*.6-e.st.stress*.4+e.count.tasks*5)}
-function finish(){S.over=true;document.getElementById("zoombar").hidden=true;if(NET.on&&ROOM){ROOM.presence({on:null,fx:null,boss:null,ev:null,left:null}).catch(()=>{});NET.on=false;document.getElementById("otag").hidden=true}closeTalk();document.getElementById("acts").hidden=true;document.getElementById("hud").hidden=true;joyEl.hidden=true;tgtEl.hidden=true;
+function finish(){S.over=true;closeChat();document.getElementById("zoombar").hidden=true;if(NET.on&&ROOM){ROOM.presence({on:null,fx:null,boss:null,ev:null,left:null}).catch(()=>{});NET.on=false;document.getElementById("otag").hidden=true}closeTalk();document.getElementById("acts").hidden=true;document.getElementById("hud").hidden=true;joyEl.hidden=true;tgtEl.hidden=true;
  const ps=S.ents.filter(e=>!e.boss&&(!S.online||!e.isBot));ps.forEach(e=>e.score=score(e));ps.sort((a,b)=>b.score-a.score);
  const top=(f)=>ps.slice().sort((a,b)=>f(b)-f(a))[0];
  const aw=[
@@ -711,7 +731,7 @@ function start(online){
  if(online){const n=gamePeers().filter(p=>!p.sameTab).length;if(n>=5){document.getElementById("netline").textContent="Phòng đã đủ 5 người. Đợi ván sau nhé.";return}}
  S={time:0,ents:[],fx:[],pop:[],couples:[],ev:null,nextEv:20,over:false,bossRound:0,roundEnd:ROUND,online:!!online};
  me=mkEnt(chosen,name,false);S.ents.push(me);
- NET.on=!!online;NET.out=[];NET.seq=0;NET.seen={};NET.ghosts=new Map();NET.hostLeft=null;NET.evN=0;NET.lastPub=-1;
+ NET.on=!!online;NET.out=[];NET.seq=0;NET.seen={};NET.ghosts=new Map();NET.hostLeft=null;NET.evN=0;NET.lastPub=-1;NET.chat=[];NET.chatI=0;NET.chatSeen={};
  if(online){const mine=ROOM.peers().find(p=>p.sameTab);NET.myPeer=mine?mine.peer:"~me";const others=gamePeers().filter(p=>!p.sameTab);
   const hp=others.map(p=>p.presence).find(pr=>typeof pr.left==="number");if(hp){NET.hostLeft=hp.left;NET.hostLeftAt=0;S.roundEnd=hp.left}}
  else{const names=BOT_NAMES.slice().sort(()=>Math.random()-.5);
