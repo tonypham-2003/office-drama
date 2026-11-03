@@ -1,10 +1,14 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Office Drama</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@400;600;700&display=swap">
 <style>
 *{box-sizing:border-box}body{margin:0}
+html,body{touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,.act,.char{touch-action:manipulation}
+.zoombar{position:absolute;right:max(8px,env(safe-area-inset-right,0px));top:150px;display:flex;flex-direction:column;gap:4px;z-index:6}
+.zoombar button{width:36px;height:36px;border:2px solid #1E1B18;border-radius:6px;background:#FFF8E7;font:700 20px/1 system-ui,sans-serif;color:#1E1B18;cursor:pointer;box-shadow:2px 2px 0 #1E1B18}
 /* Layout: full-screen canvas game; HUD floats over the office floor plan. Single deliberate "office carpet + sticky-note" look. */
 :root{
   --carpet:#3B4256; --ink:#1E1B18; --paper:#FFF8E7; --note:#FFE066; --accent:#FF5A36; --cool:#2F6FDE; --muted:#6B6458;
@@ -103,6 +107,7 @@ input[type=text]{font:inherit;font-size:16px;padding:10px 12px;border:2px solid 
   <div class="banner" id="banner" hidden></div>
   <div class="feed" id="feed"></div>
   <div class="online-tag" id="otag" hidden></div>
+  <div class="zoombar" id="zoombar" hidden><button id="zin" aria-label="Phóng to">+</button><button id="zout" aria-label="Thu nhỏ">−</button></div>
   <div class="card target" id="tgt" hidden></div>
   <div class="talk" id="talk" hidden></div>
   <div class="actions" id="acts" hidden></div>
@@ -507,7 +512,16 @@ function hud(){
 
 // ---------- Render ----------
 const cv=document.getElementById("cv"),ctx=cv.getContext("2d");let DPR=1,VW=0,VH=0,zoom=1;
-function resize(){DPR=Math.min(2,devicePixelRatio||1);VW=cv.clientWidth;VH=cv.clientHeight;cv.width=VW*DPR;cv.height=VH*DPR;zoom=clamp(Math.min(VW/820,VH/560),.55,1.25)}
+let ZM=1;try{ZM=+localStorage.getItem("od_zoom")||1}catch(_){}
+function resize(){DPR=Math.min(2,devicePixelRatio||1);VW=cv.clientWidth;VH=cv.clientHeight;cv.width=VW*DPR;cv.height=VH*DPR;zoom=clamp(Math.min(VW/820,VH/560),.55,1.25)*ZM;if(window.scrollX||window.scrollY)window.scrollTo(0,0)}
+function setZM(v){ZM=clamp(v,.5,1.6);try{localStorage.setItem("od_zoom",ZM)}catch(_){}resize()}
+document.getElementById("zin").addEventListener("click",()=>setZM(ZM*1.15));document.getElementById("zout").addEventListener("click",()=>setZM(ZM/1.15));
+// block browser pinch / double-tap zoom so the page never gets stuck zoomed in
+["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener("dblclick",e=>e.preventDefault(),{passive:false});
+document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
+addEventListener("wheel",e=>{if(e.ctrlKey)e.preventDefault()},{passive:false});
+if(window.visualViewport)visualViewport.addEventListener("resize",resize);
 addEventListener("resize",resize);
 function drawWorld(cam){
  ctx.fillStyle="#2A2F3D";ctx.fillRect(0,0,W,H);
@@ -672,7 +686,7 @@ function applyFx(f,from){
  if(f.m)feed(String(f.m).slice(0,120).replace(/</g,"&lt;"));
 }
 function score(e){return Math.round(e.st.kpi*1+e.st.uytin*.8+e.st.tc*.6-e.st.stress*.4+e.count.tasks*5)}
-function finish(){S.over=true;if(NET.on&&ROOM){ROOM.presence({on:null,fx:null,boss:null,ev:null,left:null}).catch(()=>{});NET.on=false;document.getElementById("otag").hidden=true}closeTalk();document.getElementById("acts").hidden=true;document.getElementById("hud").hidden=true;joyEl.hidden=true;tgtEl.hidden=true;
+function finish(){S.over=true;document.getElementById("zoombar").hidden=true;if(NET.on&&ROOM){ROOM.presence({on:null,fx:null,boss:null,ev:null,left:null}).catch(()=>{});NET.on=false;document.getElementById("otag").hidden=true}closeTalk();document.getElementById("acts").hidden=true;document.getElementById("hud").hidden=true;joyEl.hidden=true;tgtEl.hidden=true;
  const ps=S.ents.filter(e=>!e.boss&&(!S.online||!e.isBot));ps.forEach(e=>e.score=score(e));ps.sort((a,b)=>b.score-a.score);
  const top=(f)=>ps.slice().sort((a,b)=>f(b)-f(a))[0];
  const aw=[
@@ -705,7 +719,7 @@ function start(online){
  S.boss=bossEnt();S.ents.push(S.boss);
  S.ents.forEach(e=>{if(!e.boss)newTask(e)});HIDES.forEach(h=>{h.by=null;h.res=null});closeTalk();
  feedEl.innerHTML="";feed(`Chào ${nm(me)}. Ngày làm việc bắt đầu. Đứng gần ai đó rồi bấm 💬 để nói chuyện.`);
- document.getElementById("start").hidden=true;document.getElementById("hud").hidden=false;actsEl.hidden=false;
+ document.getElementById("start").hidden=true;document.getElementById("hud").hidden=false;actsEl.hidden=false;document.getElementById("zoombar").hidden=false;if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();window.scrollTo(0,0);
  joyEl.hidden=!matchMedia("(pointer:coarse)").matches;
  buildActs();resize();last=performance.now();requestAnimationFrame(tick);
 }
